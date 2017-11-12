@@ -1,0 +1,12 @@
+BOOL GetMyCurrentDirectory(char *pPath,DWORD dwSize)
+{
+	if(GetModuleFileName(NULL,pPath,dwSize))
+	{
+		*(strrchr(pPath,'\\') + 1) = '\0';
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
