@@ -1,0 +1,14 @@
+LPBYTE  GetExeEntryPoint(char *filename)
+{
+	PIMAGE_NT_HEADERS   pNTHeader;
+    DWORD				pEntryPoint;
+    PLOADED_IMAGE       pImage;
+    pImage = ImageLoad(filename, NULL);
+    if(pImage == NULL)
+		return NULL;
+    pNTHeader = pImage->FileHeader;
+    pEntryPoint = pNTHeader->OptionalHeader.AddressOfEntryPoint + pNTHeader->OptionalHeader.ImageBase;
+    ImageUnload(pImage);
+    return (LPBYTE)pEntryPoint;
+
+}
