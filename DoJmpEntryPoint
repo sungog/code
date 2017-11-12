@@ -1,0 +1,15 @@
+void __declspec(naked) DoJmpEntryPoint()
+
+{
+	// 恢复LoadLibrary后面的代码
+	fNew = PAGE_READWRITE;
+	lpMovEax = (DWORD*)_lpCode.OldAddr;
+	VirtualProtect(lpMovEax, 2*sizeof(DWORD), fNew, &fOld);
+	*lpMovEax = _lpCode.OldCode[0];
+	*(lpMovEax + 1) = _lpCode.OldCode[1];
+	VirtualProtect(lpMovEax, 2*sizeof(DWORD), fOld, &fNew);
+
+	// 跳至目标代码的入口
+	_asm       popad	
+	_asm       jmp _lpCode.lpEntryPoint
+}
