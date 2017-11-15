@@ -1,0 +1,249 @@
+要防止自己的程序被关闭,通常有两种方法1.像IcesWord一样HOOK系统底层的函数2.使用线程保护。这里我们主要学习线程保护的方法
+线程保护的思路就是让其它程序监视自己,如果自身程序退出了,那么监视程序就重新启动.
+
+我们来分析一下线程守护的思路,并编程实现一个简单的线程守护程序，本程序完成的功能是把监视代码插入到Notepad.exe进程
+以监视程序本身，如果自身被关闭，Notepad.exe进程将重新启动自身程序，以达到不死的效应,以下代码在VC6中编译通过。
+a
+现在我们重新整理一下思路，首先我们找一个其它进程做为我们的保护神并把自己进程的句柄传保护神，保护神通过用WaitForSingleObject
+函数来检测句柄来判断要保护的进程是否结束，如果结束就重新启动我们的程序.跟据上面的思路我们来分析细节的实现。
+
+1.检测并保护程序的远程线程代码
+
+因为保护自己的代码要注入到Notepad.exe进程，而执行在远程线程代码的API都需要重新定位，为解决这个问题我们定义如下的结构
+
+复制内容到剪贴板
+ 代码:
+typedef struct _remoteparameter
+{
+    DWORD        rpWaitForSingleObject;
+    DWORD        rpOpenProcess;
+    DWORD       rpWinExec;
+    DWORD        rpProcessPID;          
+     HANDLE        rpProcessHandle;
+    char        path[MAX_PATH];
+}REMOTEPARAM;
+这个结构中包的前三项为远程线程中需要使用的API函数, rpProcessPID为要保护的进程PID,rpProcessHandle用来保存要保护进程的句柄
+path为当程序被关闭时需要启动的程序路径。远程线程函数如下
+ 复制内容到剪贴板
+ 代码:
+DWORD WINAPI remote(LPVOID pvparam)
+{
+    REMOTEPARAM *rp=(REMOTEPARAM*)pvparam;  //传递进来的信息
+
+    typedef UINT            (WINAPI *EWinExec)                (LPCSTR, UINT);
+    typedef HANDLE            (WINAPI *EOpenProcess)            (DWORD, BOOL, DWORD);
+    typedef DWORD            (WINAPI *EWaitForSingleObject)    (HANDLE, DWORD);
+
+
+    EWinExec                tWinExec;
+    EOpenProcess            tOpenProcess;
+    EWaitForSingleObject    tWaitForSingleObject;
+
+
+    tOpenProcess            =(EOpenProcess)rp->rpOpenProcess;
+    tWaitForSingleObject    =(EWaitForSingleObject)rp->rpWaitForSingleObject;
+    tWinExec                =(EWinExec)rp->rpWinExec;
+
+
+    rp->rpProcessHandle=tOpenProcess(PROCESS_ALL_ACCESS,FALSE,rp->rpProcessPID);//打开要保护的进程
+
+    tWaitForSingleObject(rp->rpProcessHandle,INFINITE);//要保护的进程是否结束
+   
+    tWinExec(rp->path, SW_SHOW);//如果结束就重新启动程序
+    return 0;
+}
+2.将remote函数代码注入Notepad.exe进程并启动
+
+
+这里为了方便我定义成了一个函数，使用时只要提供要注入的进程名称就可以完成线程守护的功能,它的返回值是远程线程的句柄
+
+其实现如下:
+复制内容到剪贴板
+代码:
+HANDLE CreateRemoteThreadProc(char* ProcessName)
+{
+        HANDLE    ThreadHandle;
+        char    FilePath[MAX_PATH];
+
+        GetModuleFileName(NULL,FilePath,MAX_PATH);//得到文件所在路径
+
+        int procID=processtopid(ProcessName);
+        printf("The process pid is %d\n",procID);
+
+
+        HINSTANCE         hkernel32;
+        HANDLE            rphandle;
+        char             *remotethr;
+        char             *remotepar;
+        int               cb;
+
+           rphandle=OpenProcess(PROCESS_CREATE_THREAD |    
+                                   PROCESS_VM_OPERATION  |    
+                                    PROCESS_VM_WRITE,          
+                                 FALSE,procID);
+        if(rphandle==NULL)
+        {
+               printf("Open Remote Process  is Error\n");
+        }
+        else
+        {
+            printf("open process is ok\n");
+        }
+
+        /*****************************************************************/
+                        /*将远程线程函数代码拷入目标进程*/
+        /*****************************************************************/
+
+        cb=sizeof(char)*4*1024;
+
+        remotethr=(PTSTR)VirtualAllocEx(rphandle,NULL,cb,MEM_COMMIT,PAGE_EXECUTE_READWRITE);
+        if(remotethr==NULL)
+        {
+            printf("VirtualAllocEx for Thread Error\n");
+            CloseHandle(rphandle);      
+        }
+        else
+            printf("VirtualAllocEx is ok\n");
+
+
+        if(WriteProcessMemory(rphandle,remotethr,(LPVOID)remote,cb,NULL)==FALSE)
+        {
+            printf("WriteProcessMemory for Thread Error\n");
+            CloseHandle(rphandle);
+        }
+        else
+            printf("WriteProcessMemory is ok\n");
+2011-07-19 17:06
+        /*****************************************************************/
+                        /*将远程线程函数参数拷入目标进程*/
+                        /*这里需要重定位远程线程需要的API*/
+        /*****************************************************************/
+
+        REMOTEPARAM rp;
+        memset((char*)&rp,0,sizeof(rp));
+
+        hkernel32=GetModuleHandle("kernel32.dll");
+
+        if(hkernel32==NULL)
+        {
+            printf("hKernel32 is Error\n");
+        }
+
+        rp.rpProcessPID            =GetCurrentProcessId();
+        rp.rpOpenProcess        =(DWORD)GetProcAddress(hkernel32,"OpenProcess");
+        rp.rpWinExec            =(DWORD)GetProcAddress(hkernel32,"WinExec");
+        rp.rpWaitForSingleObject=(DWORD)GetProcAddress(hkernel32,"WaitForSingleObject");
+        _tcscpy(rp.path,FilePath);   
+
+
+        cb=sizeof(char)*sizeof(rp);
+        remotepar=(PTSTR)VirtualAllocEx(rphandle,NULL,cb,MEM_COMMIT,PAGE_READWRITE);
+        if(remotepar==NULL)
+        {
+            printf("VirtualAllocEx for Parameter Error\n");
+            CloseHandle(rphandle);
+        }
+
+        if(WriteProcessMemory(rphandle,remotepar,(LPVOID)&rp,cb,NULL)==FALSE)
+        {
+            printf("WriteProcessMemory for Parameter Error\n");
+            CloseHandle(rphandle);
+        }
+
+ 
+
+        /*****************************************************************/
+                        /*将远程线程注入目标进程*/
+        /*****************************************************************/
+
+       
+        ThreadHandle=CreateRemoteThread(rphandle,NULL,0,(LPTHREAD_START_ROUTINE)remotethr,(LPVOID)remotepar,0,NULL);
+       
+        if(ThreadHandle==NULL)
+        {
+            printf("CreateRemotThreadHandle Error\n");
+            CloseHandle(rphandle);
+        }
+        else
+            printf("CreateRemotThreadHandle is ok\n");
+
+        return ThreadHandle;
+}
+3.其它自定义函数实现
+
+其实CreateRemoteThreadProc函数就是最关键的实现了,最后介绍一个这个函数中的两个自己定义函数
+复制内容到剪贴板
+代码:
+DWORD processtopid(char *processname)//跟据进程名称取PID值
+{
+    DWORD    lpidprocesses[1024],cbneeded,cprocesses;
+    HANDLE   hprocess;
+    HMODULE  hmodule;
+    UINT     i;
+    TCHAR    normalname[MAX_PATH]=("UnknownProcess");
+   
+    if(!EnumProcesses(lpidprocesses,sizeof(lpidprocesses),&cbneeded))
+    {
+        return -1;
+    }
+    cprocesses=cbneeded/sizeof(DWORD);
+    for(i=0;i<cprocesses;i++)
+    {
+        hprocess=OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,FALSE,lpidprocesses[i]);
+        if(hprocess)
+        {
+            if(EnumProcessModules(hprocess,&hmodule,sizeof(hmodule),&cbneeded))
+            {
+                GetModuleBaseName(hprocess,hmodule,normalname,sizeof(normalname));
+                if(!strcmp(normalname,processname))
+                {
+                    CloseHandle(hprocess);
+                    return (lpidprocesses[i]);
+                }
+            }
+        }
+    }
+    CloseHandle(hprocess);
+    return 0;
+}
+复制内容到剪贴板
+代码:
+BOOL EnablePriv()//提升进程权限
+{
+    HANDLE hToken;
+    if ( OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES,&hToken) )
+    {
+        TOKEN_PRIVILEGES tkp;
+       
+        LookupPrivilegeValue( NULL,SE_DEBUG_NAME,&tkp.Privileges[0].Luid );    //修改进程权限
+        tkp.PrivilegeCount=1;
+        tkp.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
+        AdjustTokenPrivileges( hToken,FALSE,&tkp,sizeof tkp,NULL,NULL );    //通知系统修改进程权限
+    }
+        return 0;
+}
+4.主函数的实现
+
+功能都实现了主函数相对十分简单其代码如下:
+复制内容到剪贴板
+代码:
+int main(int argc, char* argv[])
+{
+    HANDLE RemoteThreadHandle;
+
+    EnablePriv();
+
+    RemoteThreadHandle=CreateRemoteThreadProc("Notepad.exe");//注入进程
+
+    WaitForSingleObject(RemoteThreadHandle,INFINITE);//等待结束
+
+    return 0;
+}
+5.测试程序效果
+
+测试打开本文所属的程序，测试会发现通过结束进程等方法无法关闭本程序，这是因为程序被关闭后Notepad.exe程序会重新启动它
+如果想关闭程序，只要先结束Notepad.exe就可以了。
+
+这样线程守护就完成了,本程序很多地方参照了TOo2y大哥的三线程诱鼠器代码在此表示感谢,其实多线程最初在2002年无花果的"中国黑客"
+病毒中使用，并广为人知，到现在这个技术仍被大量使用着,像鸽子，凋零玫瑰的NCPH的服务端都有这样的技术,如果你有不明白的地方
+或者文章有错误欢迎你跟我交流我的QQ是121121606

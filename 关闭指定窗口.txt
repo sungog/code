@@ -1,0 +1,33 @@
+#include   "stdafx.h " 
+ #include   <windows.h> 
+ #include   <conio.h> 
+ #define   PAUSE   printf( "\npress   any   key   to   exit ");   getch(); 
+
+ BOOL   CALLBACK   EnumWindowsProc( 
+     HWND   hwnd,             //   handle   to   parent   window 
+     LPARAM   lParam       //   application-defined   value 
+ ) 
+ { 
+ char   szClassName[255]; 
+ char   szTitle[255]; 
+ GetClassName(   hwnd,   szClassName,   255   ); 
+ GetWindowText(   hwnd,   szTitle,   255   ); 
+ if(   strcmp(   szClassName,   "#32770 "   )   ==   0   ) 
+ { 
+
+ HWND   hQQBar   =   FindWindowEx(   hwnd,   NULL,   "Tencent_QQBar ",   NULL   ); 
+ if(   hQQBar   !=   0   ) 
+ { 
+ printf( "%x:%s(%s)\n ",   hwnd,   szClassName,   szTitle   ); 
+ PostMessage(   hwnd,   WM_CLOSE,   0,   0   ); 
+ } 
+ } 
+ return   TRUE; 
+ } 
+
+ int   main(int   argc,   char*   argv[]) 
+ { 
+ EnumWindows(   EnumWindowsProc,   0   ); 
+ PAUSE; 
+ return   0; 
+ }

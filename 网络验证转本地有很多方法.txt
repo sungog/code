@@ -1,0 +1,76 @@
+本地服务器之Hook connect
+本文来自: UPK软件安全社区 作者: cektop 日期: 2011-2-21 00:10 阅读: 992人 收藏  本帖最后由 cektop 于 2011-2-24 16:32 编辑 
+
+
+ 服务端: BCB&Delphi IdHTTPServer
+void RunServices()
+{
+  Form1->IdHTTPServer1->Bindings->Clear();
+  Form1->IdHTTPServer1->DefaultPort=8376;
+  Form1->IdHTTPServer1->Bindings->Add();
+  Form1->IdHTTPServer1->Active=true;
+}
+复制代码
+    String Str,ParamsStr;
+    Str=ARequestInfo->Document;
+    ParamsStr=ARequestInfo->UnparsedParams;
+
+    //OutputDebugString(Str.c_str());
+    //OutputDebugString(ParamsStr.c_str());
+    if (lstrcmp(Str.c_str(),"test.asp")==0) {
+       AResponseInfo->ContentText="test";
+       Label1->Caption="本地接收数据成功!";
+    }
+    else
+    {
+       AResponseInfo->ContentText="Services to all users";
+    }
+复制代码
+Hook connect
+void Hook(HMODULE hModule)
+{
+
+    DetourRestoreAfterWith();
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+
+    DetourAttach(&(PVOID&)OLD_connect, NEW_connect ) ;
+
+    DetourTransactionCommit();
+
+}
+复制代码
+static int (WINAPI* OLD_connect)(SOCKET s,                          
+                                    const struct sockaddr FAR *name,  
+                                    int namelen) = connect;
+
+int WINAPI NEW_connect(SOCKET s,                          
+                       const struct sockaddr FAR *  name,  
+                       int namelen )
+{
+     int ret;
+     sockaddr_in *servAddr;
+      __asm
+     {
+         mov eax,name;
+         mov servAddr,eax
+     }
+     if (servAddr->sin_addr.S_un.S_addr==inet_addr("122.226.84.10"))
+     {
+         servAddr->sin_addr.S_un.S_addr =inet_addr("127.0.0.1");
+         servAddr->sin_port = htons(8376);
+     }
+     ret=OLD_connect(s,name,namelen);
+     //OutputDebugString("test");
+     return ret;
+}
+复制代码
+转本地有很多方法:
+ 1.修改hosts
+127.0.0.1  www.google.com
+复制代码
+2.Internet 协议 (TCP/IP) 属性 添加IP
+ 3.hook connect
+ 4.hook  inet_addr getaddrinfo gethostbyname
+ 4.易语言网络拦截支持库.
+ 5.Hook InternetConnect 转本地验证(如 AutoIt 程序)

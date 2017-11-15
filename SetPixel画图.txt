@@ -1,0 +1,24 @@
+FILE * pf = fopen("C:\\Users\\makefile\\Desktop\\a.bmp", "rb");
+BITMAPFILEHEADER bmpFH;
+BITMAPINFOHEADER bmpIH;
+const unsigned long length = 1024 * 768 * 3;
+unsigned long mm;
+fread(&bmpFH, sizeof(bmpFH), 1, pf);
+fread(&bmpIH, sizeof(bmpIH), 1, pf); 
+unsigned char * bmpData = (unsigned char *)malloc(sizeof(unsigned char) * length);
+fread(bmpData, length, 1, pf);
+fclose(pf); 
+CDC * pDC = GetDC();
+
+for (int i = 0; i < 1024; ++i)
+{
+for (int j = 0; j < 768; ++j)
+{
+mm = 3 * j * 1024 + 3 * i;
+COLORREF colorrrefRGB = RGB(bmpData[mm+2], bmpData[mm+1], bmpData[mm]); 
+
+pDC->SetPixel(i, j, colorrrefRGB);
+}
+}
+free(bmpData);
+ReleaseDC(pDC);

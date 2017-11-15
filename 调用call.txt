@@ -1,0 +1,4 @@
+	#define StartAdd	0x41E7C0  ÒªcallµÄµØÖ·
+	void * p1 = (LPVOID)StartAdd;
+	void (*fp1)(int a,int b,int c,int d) = (void(*)(int a,int b,int c,int d))p1;
+	fp1(a,b,c,d);

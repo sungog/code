@@ -1,0 +1,12 @@
+var SMMB:Pointer;
+    MBI:TMemoryBasicInformation;
+begin
+  SMMB:=GetProcAddress(GetModuleHandle('user32.dll'),'SoftModalMessageBox');
+  VirtualQuery(SMMB,MBI,SizeOf(MBI));
+  VirtualProtect(SMMB,1024,PAGE_EXECUTE_READWRITE,@MBI);
+  asm  //patch
+    mov eax,SMMB
+    mov byte ptr [eax],$C2
+    mov byte ptr [eax+1],4
+    mov byte ptr [eax+2],0
+  end;

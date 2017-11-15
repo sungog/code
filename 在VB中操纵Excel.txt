@@ -1,0 +1,173 @@
+   
+ 
+在VB中操纵Excel 
+一．Excel对象模块 
+                    Application 
+           对象         |            集合 
+       ---------------------------------- 
+      |-----Assistant                   |----Addins(Addin) 
+      |-----AutoComect                  |-----OLEDBErrors 
+      |-----Debug                       |-----CommandBars(CommandBar) 
+      |-----VBE                         |-----Dialogs(Dialog) 
+      |-----WorksheetFunction           |-----RecentFilds(RecentFile) 
+      |-----DefaultWebOptions           |-----Windows(Window) 
+      |-----LanguageSettings            |-----Workbooks(Workbook) 
+      |-----Filesearch                  |------Names(name) 
+      |-----AnswerWizard                |------ODBCErrors 
+
+最上层的Application是指整个应用程序，其中最常用到的Workbooks代表活页簿集合，在其后的括号内的Workbook是指一个工作簿。 
+在VB中要打开Excel，首先要引用Microsoft Excel 9.0(或8.0）Object Lobrary。 
+打开的步骤是：（1）定义两个变量，数据类型指定为Excel.Application．Excel.Workbook. 
+(2)激活Excel应用程序。（3）打开工作簿(我们假设在当前路径下有一个工作簿students.xls）。 
+代码如下： 
+Option Explicit 
+Public appExcel As Excel.Application 
+Public wbExcel As Excel.Workbook 
+Private Sub Setup_Excel_object() 
+   Set appExcel = CreateObject("excel.application") 
+   Set wbExcel = appExcel.Workbooks.Open(App.Path & "\students.xls") 
+   appExcel.Visible = True '使对象可见 
+End Sub 
+
+二．工作表对象Worksheet 
+       Workbooks对象有一个集合对象－－工作表Worksheets,，用来放工作表相关的资料。 
+          
+                 Workbooks(workbook) 
+      对象                    |           集合 
+       －－－－－－－－－－－－------------ 
+       |----HTMLProjcet                   |----Publishobjects 
+       |----RoutingSlip                   |----DocumentProperties 
+       |----Areas                         |----Worksheets 
+       |----WebOptions                    |----Names 
+       |----VBProject                     |----CustomViews 
+                                          |----CommandBars 
+                                          |----PivotCaches 
+                                          |----Windows 
+                                          |----Styles 
+                                          |----Charts 
+
+    调用方法是声明一个工作表变量，用For-Each循环方式可以读取集合对象Workbooks里的所有工作表名。 
+代码如下： 
+   Dim temp As Excel.Worksheet 
+   For Each temp In wbExcel.Worksheets  'wbExcel是上面代码中声明的Workbook 
+       FORM1.Combo1.AddItem temp.Name 
+   Next 
+
+三．读取工作表某个选取范围的内容。 
+要读取工作表某个范围单元格，可先定义一个Excel范围对象变量，然后使用Rows或Columns函数指定某行或某列的范围，范围单元格（Cells)地址以目前被选取范围为基准。具体方法如下： 
+（1）设置工作表对象变量操作哪个工作表； 
+（2）选取工作表的某行或某列； 
+（3）在上面的选取范围内读取某个单元格内容。 
+代码如下： 
+   Dim Tempsheet As Excel.Worksheet '定义Excel工作表 
+   Dim TempRange As Excel.Range '定义Excel工作表范围变量 
+    
+   '第一步：选取工作表Sheet1 
+   Set Tempsheet = appExcel.Worksheets("sheet1") 
+    
+   '第二步：选取第二行(以这行为第一行） 
+   Set TempRange = Tempsheet.Rows(2) 
+    
+   '第三步：读取范围内第一行．第二列的单元格 
+   Text1.Text = TempRange.Cells(1, 2) 
+
+四．其他 
+     用TempRange.Find("").Column方法可以查找目前范围内第一行的第一个空白单元格 
+
+
+如何实现VB与EXCEL的无缝连接 
+ 
+2003-02-17· ·吴刚··yesky
+
+ 
+
+　　VB是常用的应用软件开发工具之一，由于VB的报表功能有限，而且一但报表格式发生变化，就得相应修改程序，给应用软件的维护工作带来极大的不便。因此有很多程序员现在已经充分利用EXECL的强大报表功来实现报表功能。但由于VB与EXCEL由于分别属于不同的应用系统，如何把它们有机地结合在一起，是一个值得我们研究的课题。
+
+　　一、 VB读写EXCEL表：
+
+　　VB本身提自动化功能可以读写EXCEL表，其方法如下：
+
+　　1、在工程中引用Microsoft Excel类型库：
+
+　　从"工程"菜单中选择"引用"栏；选择Microsoft Excel 9.0 Object Library（EXCEL2000），然后选择"确定"。表示在工程中要引用EXCEL类型库。
+
+　　2、在通用对象的声明过程中定义EXCEL对象：
+
+Dim xlApp As Excel.Application
+Dim xlBook As Excel.WorkBook
+Dim xlSheet As Excel.Worksheet 
+
+　　3、在程序中操作EXCEL表常用命令：
+
+Set xlApp = CreateObject("Excel.Application") '创建EXCEL对象
+Set xlBook = xlApp.Workbooks.Open("文件名") '打开已经存在的EXCEL工件簿文件
+xlApp.Visible = True '设置EXCEL对象可见（或不可见）
+Set xlSheet = xlBook.Worksheets("表名") '设置活动工作表
+xlSheet.Cells(row, col) =值 '给单元格（row,col）赋值
+xlSheet.PrintOut '打印工作表
+xlBook.Close (True) '关闭工作簿
+xlApp.Quit '结束EXCEL对象
+Set xlApp = Nothing '释放xlApp对象
+xlBook.RunAutoMacros (xlAutoOpen) '运行EXCEL启动宏
+xlBook.RunAutoMacros (xlAutoClose) '运行EXCEL关闭宏 
+
+　　4、在运用以上VB命令操作EXCEL表时，除非设置EXCEL对象不可见，否则VB程序可继续执行其它操作，也能够关闭EXCEL，同时也可对EXCEL进行操作。但在EXCEL操作过程中关闭EXCEL对象时，VB程序无法知道，如果此时使用EXCEL对象，则VB程序会产生自动化错误。形成VB程序无法完全控制EXCEL的状况，使得VB与EXCEL脱节。
+
+　　二、 EXCEL的宏功能：
+
+　　EXCEL提供一个Visual Basic编辑器，打开Visual Basic编辑器，其中有一工程属性窗口，点击右键菜单的"插入模块"，则增加一个"模块1"，在此模块中可以运用Visual Basic语言编写函数和过程并称之为宏。其中，EXCEL有两个自动宏：一个是启动宏（Sub Auto_Open()），另一个是关闭宏（Sub Auto_Close()）。它们的特性是：当用EXCEL打含有启动宏的工簿时，就会自动运行启动宏，同理，当关闭含有关闭宏的工作簿时就会自动运行关闭宏。但是通过VB的自动化功能来调用EXCEL工作表时，启动宏和关闭宏不会自动运行，而需要在VB中通过命令xlBook.RunAutoMacros (xlAutoOpen)和xlBook.RunAutoMacros (xlAutoClose) 来运行启动宏和关闭宏。
+
+　　三、 VB与EXCEL的相互勾通：
+
+　　充分利用EXCEL的启动宏和关闭宏，可以实现VB与EXCEL的相互勾通，其方法如下：
+
+　　在EXCEL的启动宏中加入一段程序，其功能是在磁盘中写入一个标志文件，同时在关闭宏中加入一段删除此标志文件的程序。VB程序在执行时通过判断此标志文件存在与否来判断EXCEL是否打开，如果此标志文件存在，表明EXCEL对象正在运行，应该禁止其它程序的运行。如果此标志文件不存在，表明EXCEL对象已被用户关闭，此时如果要使用EXCEL对象运行，必须重新创建EXCEL对象。
+
+　　四、举例：
+
+　　1、在VB中，建立一个FORM，在其上放置两个命令按钮，将Ｃommand1的Caption属性改为EXCEL，Command2的Caption属性改为End。然后在其中输入如下程序：
+
+Dim xlApp As Excel.Application '定义EXCEL类 
+Dim xlBook As Excel.Workbook '定义工件簿类
+Dim xlsheet As Excel.Worksheet '定义工作表类 
+Private Sub Command1_Click() '打开EXCEL过程
+　If Dir("D:\temp\excel.bz") = "" Then '判断EXCEL是否打开
+　　Set xlApp = CreateObject("Excel.Application") '创建EXCEL应用类
+　　xlApp.Visible = True '设置EXCEL可见
+　　Set xlBook = xlApp.Workbooks.Open("D:\temp\bb.xls") '打开EXCEL工作簿
+　　Set xlsheet = xlBook.Worksheets(1) '打开EXCEL工作表
+　　xlsheet.Activate '激活工作表
+　　xlsheet.Cells(1, 1) = "abc" '给单元格1行驶列赋值
+　　xlBook.RunAutoMacros (xlAutoOpen) 运行EXCEL中的启动宏
+　Else
+　　MsgBox ("EXCEL已打开") 
+　End If
+End Sub
+
+Private Sub Command2_Click()
+　If Dir("D:\temp\excel.bz") <> "" Then '由VB关闭EXCEL 
+　　xlBook.RunAutoMacros (xlAutoClose) '执行EXCEL关闭宏
+　　xlBook.Close (True) '关闭EXCEL工作簿　
+　　xlApp.Quit '关闭EXCEL
+　End If
+　Set xlApp = Nothing '释放EXCEL对象
+　End
+End Sub
+ 
+
+　　2、在Ｄ盘根目录上建立一个名为Temp的子目录，在Temp目录下建立一个名为"bb.xls"的EXCEL文件。
+
+　　3、在"bb.xls"中打开Visual Basic编辑器，在工程窗口中点鼠标键选择插入模块，在模块中输入入下程序存盘：
+
+
+Sub auto_open()
+　Open "d:\temp\excel.bz" For Output As #1 '写标志文件
+　Close #1
+End Sub
+Sub auto_close()
+　Kill "d:\temp\excel.bz" '删除标志文件
+End Sub 
+
+　　4、运行VB程序，点击EXCEL按钮可以打开EXCEL系统，打开EXCEL系统后，VB程序和EXCEL分别属两个不同的应用系统，均可同时进行操作，由于系统加了判断，因此在VB程序中重复点击EXCEL按钮时会提示EXCEL已打开。如果在EXCEL中关闭EXCEL后再点EXCEL按钮，则会重新打开EXCEL。而无论EXCEL打开与否，通过VB程序均可关闭EXCEL。这样就实现了VB与EXCEL的无缝连接。
+ 
+ 
