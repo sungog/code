@@ -27,3 +27,28 @@ void dump_hex(unsigned char *data, unsigned int datalen, char *margin)
         printf("%02X ", data[i]);
     }
 } /* dump_hex */
+
+
+
+/****************************************************************************
+ * helper function: dumps a given block of data, in hex and ascii
+ */
+
+void dump(unsigned char *data, unsigned int datalen, char *margin)
+{
+    unsigned int i, icols;
+
+    for (i = 0; i < datalen; )
+    {
+        icols = datalen - i;
+
+        if (icols > DUMP_COLS_PER_ROW)
+            icols = DUMP_COLS_PER_ROW;
+
+        dump_hex(&data[i], icols, margin);
+        dump_ascii(&data[i], icols, "  ");
+        printf("\n");
+
+        i += icols;
+    }
+} /* dump */
